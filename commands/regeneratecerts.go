@@ -22,7 +22,7 @@ func cmdRegenerateCerts(c CommandLine, store persist.Store) error {
 
 	log.Infof("Regenerating TLS certificates")
 
-	return runActionWithContext("configureAuth", c, store)
+	return runActionOnHosts("configureAuth", c.Args(), store)
 }
 
 func confirmInput(msg string) (bool, error) {

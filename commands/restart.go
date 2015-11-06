@@ -6,7 +6,7 @@ import (
 )
 
 func cmdRestart(c CommandLine, store persist.Store) error {
-	if err := runActionWithContext("restart", c, store); err != nil {
+	if err := runActionOnHosts("restart", c.Args(), store); err != nil {
 		return err
 	}
 

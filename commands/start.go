@@ -6,7 +6,7 @@ import (
 )
 
 func cmdStart(c CommandLine, store persist.Store) error {
-	if err := runActionWithContext("start", c, store); err != nil {
+	if err := runActionOnHosts("start", c.Args(), store); err != nil {
 		return err
 	}
 

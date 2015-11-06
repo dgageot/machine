@@ -322,14 +322,14 @@ func consolidateErrs(errs []error) error {
 	return errors.New(strings.TrimSpace(finalErr))
 }
 
-func runActionWithContext(actionName string, c CommandLine, store persist.Store) error {
-	if len(c.Args()) == 0 {
+func runActionOnHosts(actionName string, hostNames []string, store persist.Store) error {
+	if len(hostNames) == 0 {
 		return ErrNoMachineSpecified
 	}
 
 	hosts := []*host.Host{}
 
-	for _, hostName := range c.Args() {
+	for _, hostName := range hostNames {
 		h, err := store.Load(hostName)
 		if err != nil {
 			return fmt.Errorf("Could not load host %q: %s", hostName, err)
