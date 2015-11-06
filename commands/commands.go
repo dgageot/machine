@@ -72,9 +72,12 @@ func newPluginDriver(driverName string, rawContent []byte) (drivers.Driver, erro
 	return d, nil
 }
 
-func fatalOnError(command func(commandLine CommandLine) error) func(context *cli.Context) {
+func fatalOnError(command func(commandLine CommandLine, store persist.Store) error) func(context *cli.Context) {
 	return func(context *cli.Context) {
-		if err := command(&contextCommandLine{context}); err != nil {
+		commandLine := &contextCommandLine{context}
+		store := getStore(commandLine)
+
+		if err := command(commandLine, store); err != nil {
 			log.Fatal(err)
 		}
 	}

@@ -16,6 +16,7 @@ import (
 	"github.com/docker/machine/libmachine/state"
 	"github.com/docker/machine/libmachine/swarm"
 	"github.com/skarademir/naturalsort"
+	"github.com/docker/machine/libmachine/persist"
 )
 
 var (
@@ -39,14 +40,13 @@ type HostListItem struct {
 	SwarmOptions *swarm.Options
 }
 
-func cmdLs(c CommandLine) error {
+func cmdLs(c CommandLine, store persist.Store) error {
 	quiet := c.Bool("quiet")
 	filters, err := parseFilters(c.StringSlice("filter"))
 	if err != nil {
 		return err
 	}
 
-	store := getStore(c)
 	hostList, err := listHosts(store)
 	if err != nil {
 		return err

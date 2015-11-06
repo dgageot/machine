@@ -118,7 +118,7 @@ var (
 	}
 )
 
-func cmdCreateInner(c CommandLine) error {
+func cmdCreateInner(c CommandLine, store persist.Store) error {
 	if len(c.Args()) > 1 {
 		return fmt.Errorf("Invalid command line. Found extra arguments %v", c.Args()[1:])
 	}
@@ -126,14 +126,6 @@ func cmdCreateInner(c CommandLine) error {
 	name := c.Args().First()
 	driverName := c.String("driver")
 	certInfo := getCertPathInfoFromContext(c)
-
-	storePath := c.GlobalString("storage-path")
-
-	store := &persist.Filestore{
-		Path:             storePath,
-		CaCertPath:       certInfo.CaCertPath,
-		CaPrivateKeyPath: certInfo.CaPrivateKeyPath,
-	}
 
 	if name == "" {
 		c.ShowHelp()
@@ -270,7 +262,7 @@ func flagHackLookup(flagName string) string {
 	return ""
 }
 
-func cmdCreateOuter(c CommandLine) error {
+func cmdCreateOuter(c CommandLine, store persist.Store) error {
 	const (
 		flagLookupMachineName = "flag-lookup"
 	)
