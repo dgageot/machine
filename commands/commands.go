@@ -65,19 +65,6 @@ func fatalOnError(command func(commandLine CommandLine, store persist.Store) err
 	}
 }
 
-func confirmInput(msg string) (bool, error) {
-	fmt.Printf("%s (y/n): ", msg)
-
-	var resp string
-	_, err := fmt.Scanln(&resp)
-	if err != nil {
-		return false, err
-	}
-
-	confirmed := strings.Index(strings.ToLower(resp), "y") == 0
-	return confirmed, nil
-}
-
 func getStore(c CommandLine) persist.Store {
 	certInfo := getCertPathInfoFromContext(c)
 	return &persist.Filestore{
