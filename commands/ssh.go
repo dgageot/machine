@@ -21,7 +21,7 @@ func cmdSSH(c CommandLine, store persist.Store) error {
 		return ErrExpectedOneMachine
 	}
 
-	host, err := loadHost(store, name)
+	host, err := store.Load(name)
 	if err != nil {
 		return err
 	}

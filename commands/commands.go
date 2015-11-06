@@ -88,10 +88,6 @@ func getStore(c CommandLine) persist.Store {
 	}
 }
 
-func loadHost(store persist.Store, hostName string) (*host.Host, error) {
-	return store.Load(hostName)
-}
-
 func saveHost(store persist.Store, h *host.Host) error {
 	if err := store.Save(h); err != nil {
 		return fmt.Errorf("Error attempting to save host to store: %s", err)
@@ -112,7 +108,7 @@ func getFirstArgHost(c CommandLine) (*host.Host, error) {
 		return nil, fmt.Errorf("Host %q does not exist", hostName)
 	}
 
-	h, err := loadHost(store, hostName)
+	h, err := store.Load(hostName)
 	if err != nil {
 		// I guess I feel OK with bailing here since if we can't get
 		// the host reliably we're definitely not going to be able to
@@ -129,7 +125,7 @@ func getHostsFromContext(c CommandLine) ([]*host.Host, error) {
 	hosts := []*host.Host{}
 
 	for _, hostName := range c.Args() {
-		h, err := loadHost(store, hostName)
+		h, err := store.Load(hostName)
 		if err != nil {
 			return nil, fmt.Errorf("Could not load host %q: %s", hostName, err)
 		}

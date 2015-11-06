@@ -42,7 +42,7 @@ func getActiveHost(store persist.Store) (*host.Host, error) {
 
 	for _, item := range hostListItems {
 		if item.Active {
-			return loadHost(store, item.Name)
+			return store.Load(item.Name)
 		}
 	}
 

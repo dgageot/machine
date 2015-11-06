@@ -44,7 +44,7 @@ type storeHostInfoLoader struct {
 }
 
 func (s *storeHostInfoLoader) load(name string) (HostInfo, error) {
-	host, err := loadHost(s.store, name)
+	host, err := s.store.Load(name)
 	if err != nil {
 		return nil, fmt.Errorf("Error loading host: %s", err)
 	}

@@ -17,7 +17,7 @@ func cmdRm(c CommandLine, store persist.Store) error {
 	force := c.Bool("force")
 
 	for _, hostName := range c.Args() {
-		h, err := loadHost(store, hostName)
+		h, err := store.Load(hostName)
 		if err != nil {
 			return fmt.Errorf("Error removing host %q: %s", hostName, err)
 		}
