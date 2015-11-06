@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 
 	"github.com/docker/machine/cli"
@@ -415,21 +414,4 @@ func getCertPathInfoFromContext(c CommandLine) cert.PathInfo {
 		ClientCertPath:   clientCertPath,
 		ClientKeyPath:    clientKeyPath,
 	}
-}
-
-func detectShell() (string, error) {
-	// attempt to get the SHELL env var
-	shell := filepath.Base(os.Getenv("SHELL"))
-
-	log.Debugf("shell: %s", shell)
-	if shell == "" {
-		// check for windows env and not bash (i.e. msysgit, etc)
-		if runtime.GOOS == "windows" {
-			log.Printf("On Windows, please specify either 'cmd' or 'powershell' with the --shell flag.\n\n")
-		}
-
-		return "", ErrUnknownShell
-	}
-
-	return shell, nil
 }
