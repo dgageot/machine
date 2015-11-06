@@ -449,9 +449,7 @@ func consolidateErrs(errs []error) error {
 	return errors.New(strings.TrimSpace(finalErr))
 }
 
-func runActionWithContext(actionName string, c CommandLine) error {
-	store := getStore(c)
-
+func runActionWithContext(actionName string, c CommandLine, store persist.Store) error {
 	hosts, err := getHostsFromContext(c)
 	if err != nil {
 		return err

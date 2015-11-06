@@ -19,5 +19,5 @@ func cmdRegenerateCerts(c CommandLine, store persist.Store) error {
 
 	log.Infof("Regenerating TLS certificates")
 
-	return runActionWithContext("configureAuth", c)
+	return runActionWithContext("configureAuth", c, store)
 }
