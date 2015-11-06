@@ -96,21 +96,6 @@ func saveHost(store persist.Store, h *host.Host) error {
 	return nil
 }
 
-func getHostsFromContext(c CommandLine) ([]*host.Host, error) {
-	store := getStore(c)
-	hosts := []*host.Host{}
-
-	for _, hostName := range c.Args() {
-		h, err := store.Load(hostName)
-		if err != nil {
-			return nil, fmt.Errorf("Could not load host %q: %s", hostName, err)
-		}
-		hosts = append(hosts, h)
-	}
-
-	return hosts, nil
-}
-
 var Commands = []cli.Command{
 	{
 		Name:   "active",
@@ -371,13 +356,18 @@ func consolidateErrs(errs []error) error {
 }
 
 func runActionWithContext(actionName string, c CommandLine, store persist.Store) error {
-	hosts, err := getHostsFromContext(c)
-	if err != nil {
-		return err
+	if len(c.Args()) == 0 {
+		return ErrNoMachineSpecified
 	}
 
-	if len(hosts) == 0 {
-		return ErrNoMachineSpecified
+	hosts := []*host.Host{}
+
+	for _, hostName := range c.Args() {
+		h, err := store.Load(hostName)
+		if err != nil {
+			return fmt.Errorf("Could not load host %q: %s", hostName, err)
+		}
+		hosts = append(hosts, h)
 	}
 
 	if errs := runActionForeachMachine(actionName, hosts); len(errs) > 0 {
