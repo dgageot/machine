@@ -10,11 +10,7 @@ import (
 
 	"github.com/docker/machine/cli"
 	"github.com/docker/machine/commands/mcndirs"
-	"github.com/docker/machine/drivers/errdriver"
 	"github.com/docker/machine/libmachine/cert"
-	"github.com/docker/machine/libmachine/drivers"
-	"github.com/docker/machine/libmachine/drivers/plugin/localbinary"
-	"github.com/docker/machine/libmachine/drivers/rpc"
 	"github.com/docker/machine/libmachine/host"
 	"github.com/docker/machine/libmachine/log"
 	"github.com/docker/machine/libmachine/persist"
@@ -59,19 +55,6 @@ func (c *contextCommandLine) Application() *cli.App {
 	return c.App
 }
 
-func newPluginDriver(driverName string, rawContent []byte) (drivers.Driver, error) {
-	d, err := rpcdriver.NewRpcClientDriver(rawContent, driverName)
-	if err != nil {
-		// Not being able to find a driver binary is a "known error"
-		if _, ok := err.(localbinary.ErrPluginBinaryNotFound); ok {
-			return errdriver.NewDriver(driverName), nil
-		}
-		return nil, err
-	}
-
-	return d, nil
-}
-
 func fatalOnError(command func(commandLine CommandLine, store persist.Store) error) func(context *cli.Context) {
 	return func(context *cli.Context) {
 		commandLine := &contextCommandLine{context}
@@ -106,41 +89,11 @@ func getStore(c CommandLine) persist.Store {
 }
 
 func listHosts(store persist.Store) ([]*host.Host, error) {
-	cliHosts := []*host.Host{}
-
-	hosts, err := store.List()
-	if err != nil {
-		return nil, fmt.Errorf("Error attempting to list hosts from store: %s", err)
-	}
-
-	for _, h := range hosts {
-		d, err := newPluginDriver(h.DriverName, h.RawDriver)
-		if err != nil {
-			return nil, fmt.Errorf("Error attempting to invoke binary for plugin '%s': %s", h.DriverName, err)
-		}
-
-		h.Driver = d
-
-		cliHosts = append(cliHosts, h)
-	}
-
-	return cliHosts, nil
+	return store.List()
 }
 
 func loadHost(store persist.Store, hostName string) (*host.Host, error) {
-	h, err := store.Load(hostName)
-	if err != nil {
-		return nil, fmt.Errorf("Loading host from store failed: %s", err)
-	}
-
-	d, err := newPluginDriver(h.DriverName, h.RawDriver)
-	if err != nil {
-		return nil, fmt.Errorf("Error attempting to invoke binary for plugin: %s", err)
-	}
-
-	h.Driver = d
-
-	return h, nil
+	return store.Load(hostName)
 }
 
 func saveHost(store persist.Store, h *host.Host) error {

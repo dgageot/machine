@@ -142,7 +142,7 @@ func cmdCreateInner(c CommandLine, store persist.Store) error {
 	}
 
 	// TODO: Fix hacky JSON solution
-	bareDriverData, err := json.Marshal(&drivers.BaseDriver{
+	rawContent, err := json.Marshal(&drivers.BaseDriver{
 		MachineName: name,
 		StorePath:   c.GlobalString("storage-path"),
 	})
@@ -150,12 +150,7 @@ func cmdCreateInner(c CommandLine, store persist.Store) error {
 		return fmt.Errorf("Error attempting to marshal bare driver data: %s", err)
 	}
 
-	driver, err := newPluginDriver(driverName, bareDriverData)
-	if err != nil {
-		return fmt.Errorf("Error loading driver %q: %s", driverName, err)
-	}
-
-	h, err := store.NewHost(driver)
+	h, err := store.NewHost(driverName, rawContent)
 	if err != nil {
 		return fmt.Errorf("Error getting new host: %s", err)
 	}
@@ -206,7 +201,7 @@ func cmdCreateInner(c CommandLine, store persist.Store) error {
 	// driverOpts is the actual data we send over the wire to set the
 	// driver parameters (an interface fulfilling drivers.DriverOptions,
 	// concrete type rpcdriver.RpcFlags).
-	mcnFlags := driver.GetCreateFlags()
+	mcnFlags := h.Driver.GetCreateFlags()
 	driverOpts := getDriverOpts(c, mcnFlags)
 
 	if err := h.Driver.SetConfigFromFlags(driverOpts); err != nil {
@@ -275,19 +270,19 @@ func cmdCreateOuter(c CommandLine, store persist.Store) error {
 	}
 
 	// TODO: Fix hacky JSON solution
-	bareDriverData, err := json.Marshal(&drivers.BaseDriver{
+	rawContent, err := json.Marshal(&drivers.BaseDriver{
 		MachineName: flagLookupMachineName,
 	})
 	if err != nil {
 		return fmt.Errorf("Error attempting to marshal bare driver data: %s", err)
 	}
 
-	driver, err := newPluginDriver(driverName, bareDriverData)
+	h, err := store.NewHost(driverName, rawContent)
 	if err != nil {
-		return fmt.Errorf("Error loading driver %q: %s", driverName, err)
+		return fmt.Errorf("Error getting new host: %s", err)
 	}
 
-	if _, ok := driver.(*errdriver.Driver); ok {
+	if _, ok := h.Driver.(*errdriver.Driver); ok {
 		return errdriver.ErrDriverNotLoadable{driverName}
 	}
 
@@ -296,7 +291,7 @@ func cmdCreateOuter(c CommandLine, store persist.Store) error {
 	//
 	// mcnFlags is the data we get back over the wire (type mcnflag.Flag)
 	// to indicate which parameters are available.
-	mcnFlags := driver.GetCreateFlags()
+	mcnFlags := h.Driver.GetCreateFlags()
 
 	// This bit will actually make "create" display the correct flags based
 	// on the requested driver.
@@ -312,7 +307,7 @@ func cmdCreateOuter(c CommandLine, store persist.Store) error {
 		}
 	}
 
-	if rpcd, ok := driver.(*rpcdriver.RpcClientDriver); ok {
+	if rpcd, ok := h.Driver.(*rpcdriver.RpcClientDriver); ok {
 		if err := rpcd.Close(); err != nil {
 			return err
 		}

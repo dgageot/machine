@@ -8,8 +8,10 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/docker/machine/drivers/errdriver"
 	"github.com/docker/machine/libmachine/auth"
 	"github.com/docker/machine/libmachine/drivers"
+	"github.com/docker/machine/libmachine/drivers/plugin/localbinary"
 	"github.com/docker/machine/libmachine/drivers/rpc"
 	"github.com/docker/machine/libmachine/engine"
 	"github.com/docker/machine/libmachine/host"
@@ -66,7 +68,7 @@ func (s Filestore) Remove(name string) error {
 func (s Filestore) List() ([]*host.Host, error) {
 	dir, err := ioutil.ReadDir(s.getMachinesDir())
 	if err != nil && !os.IsNotExist(err) {
-		return nil, err
+		return nil, fmt.Errorf("Error attempting to list hosts from store: %s", err)
 	}
 
 	hosts := []*host.Host{}
@@ -75,9 +77,17 @@ func (s Filestore) List() ([]*host.Host, error) {
 		if file.IsDir() && !strings.HasPrefix(file.Name(), ".") {
 			host, err := s.Load(file.Name())
 			if err != nil {
-				log.Errorf("error loading host %q: %s", file.Name(), err)
+				log.Errorf("Error loading host %q: %s", file.Name(), err)
 				continue
 			}
+
+			d, err := newPluginDriver(host.DriverName, host.RawDriver)
+			if err != nil {
+				return nil, fmt.Errorf("Error attempting to list hosts from store. Unable to invoke binary for plugin '%s': %s", host.DriverName, err)
+			}
+
+			host.Driver = d
+
 			hosts = append(hosts, host)
 		}
 	}
@@ -145,13 +155,25 @@ func (s Filestore) Load(name string) (*host.Host, error) {
 	}
 
 	if err := s.loadConfig(host); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("Loading host %q from store failed: %s", name, err)
 	}
+
+	d, err := newPluginDriver(host.DriverName, host.RawDriver)
+	if err != nil {
+		return nil, fmt.Errorf("Loading host %q from store failed. Unable to invoke binary for plugin: %s", name, err)
+	}
+
+	host.Driver = d
 
 	return host, nil
 }
 
-func (s Filestore) NewHost(driver drivers.Driver) (*host.Host, error) {
+func (s Filestore) NewHost(driverName string, rawContent []byte) (*host.Host, error) {
+	driver, err := newPluginDriver(driverName, rawContent)
+	if err != nil {
+		return nil, fmt.Errorf("Error loading driver %q: %s", driverName, err)
+	}
+
 	certDir := filepath.Join(s.Path, "certs")
 
 	hostOptions := &host.Options{
@@ -180,7 +202,20 @@ func (s Filestore) NewHost(driver drivers.Driver) (*host.Host, error) {
 		ConfigVersion: version.ConfigVersion,
 		Name:          driver.GetMachineName(),
 		Driver:        driver,
-		DriverName:    driver.DriverName(),
+		DriverName:    driverName,
 		HostOptions:   hostOptions,
 	}, nil
+}
+
+func newPluginDriver(driverName string, rawContent []byte) (drivers.Driver, error) {
+	d, err := rpcdriver.NewRpcClientDriver(rawContent, driverName)
+	if err != nil {
+		// Not being able to find a driver binary is a "known error"
+		if _, ok := err.(localbinary.ErrPluginBinaryNotFound); ok {
+			return errdriver.NewDriver(driverName), nil
+		}
+		return nil, err
+	}
+
+	return d, nil
 }
