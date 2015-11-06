@@ -11,7 +11,7 @@ func cmdURL(c CommandLine, store persist.Store) error {
 		return ErrExpectedOneMachine
 	}
 
-	host, err := getFirstArgHost(c)
+	host, err := store.Load(c.Args().First())
 	if err != nil {
 		return err
 	}

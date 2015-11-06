@@ -96,30 +96,6 @@ func saveHost(store persist.Store, h *host.Host) error {
 	return nil
 }
 
-func getFirstArgHost(c CommandLine) (*host.Host, error) {
-	store := getStore(c)
-	hostName := c.Args().First()
-
-	exists, err := store.Exists(hostName)
-	if err != nil {
-		return nil, fmt.Errorf("Error checking if host %q exists: %s", hostName, err)
-	}
-	if !exists {
-		return nil, fmt.Errorf("Host %q does not exist", hostName)
-	}
-
-	h, err := store.Load(hostName)
-	if err != nil {
-		// I guess I feel OK with bailing here since if we can't get
-		// the host reliably we're definitely not going to be able to
-		// do anything else interesting, but also this premature exit
-		// feels wrong to me.  Let's revisit it later.
-		return nil, fmt.Errorf("Error trying to get host %q: %s", hostName, err)
-	}
-
-	return h, nil
-}
-
 func getHostsFromContext(c CommandLine) ([]*host.Host, error) {
 	store := getStore(c)
 	hosts := []*host.Host{}
