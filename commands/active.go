@@ -33,7 +33,7 @@ func cmdActive(c CommandLine, store persist.Store) error {
 }
 
 func getActiveHost(store persist.Store) (*host.Host, error) {
-	hosts, err := listHosts(store)
+	hosts, err := store.List()
 	if err != nil {
 		return nil, err
 	}

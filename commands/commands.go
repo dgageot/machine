@@ -88,10 +88,6 @@ func getStore(c CommandLine) persist.Store {
 	}
 }
 
-func listHosts(store persist.Store) ([]*host.Host, error) {
-	return store.List()
-}
-
 func loadHost(store persist.Store, hostName string) (*host.Host, error) {
 	return store.Load(hostName)
 }

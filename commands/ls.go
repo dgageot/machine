@@ -47,7 +47,7 @@ func cmdLs(c CommandLine, store persist.Store) error {
 		return err
 	}
 
-	hostList, err := listHosts(store)
+	hostList, err := store.List()
 	if err != nil {
 		return err
 	}
