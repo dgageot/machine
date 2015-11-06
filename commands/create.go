@@ -124,9 +124,6 @@ func cmdCreateInner(c CommandLine, store persist.Store) error {
 	}
 
 	name := c.Args().First()
-	driverName := c.String("driver")
-	certInfo := getCertPathInfoFromContext(c)
-
 	if name == "" {
 		c.ShowHelp()
 		return errNoMachineName
@@ -150,11 +147,13 @@ func cmdCreateInner(c CommandLine, store persist.Store) error {
 		return fmt.Errorf("Error attempting to marshal bare driver data: %s", err)
 	}
 
+	driverName := c.String("driver")
 	h, err := store.NewHost(driverName, rawContent)
 	if err != nil {
 		return fmt.Errorf("Error getting new host: %s", err)
 	}
 
+	certInfo := getCertPathInfoFromContext(c)
 	h.HostOptions = &host.Options{
 		AuthOptions: &auth.Options{
 			CertDir:          mcndirs.GetMachineCertDir(),
