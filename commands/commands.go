@@ -245,23 +245,27 @@ var Commands = []cli.Command{
 	},
 }
 
-// machineCommand maps the command name to the corresponding machine command.
-// We run commands concurrently and communicate back an error if there was one.
-func machineCommand(actionName string, host *host.Host, errorChan chan<- error) {
-	// TODO: These actions should have their own type.
-	commands := map[string](func() error){
-		"configureAuth": host.ConfigureAuth,
-		"start":         host.Start,
-		"stop":          host.Stop,
-		"restart":       host.Restart,
-		"kill":          host.Kill,
-		"upgrade":       host.Upgrade,
-		"ip":            host.PrintIP,
+func runAction(actionName string, h *host.Host) error {
+	log.Debugf("command=%s machine=%s", actionName, h.Name)
+
+	switch actionName {
+	case "configureAuth":
+		return h.ConfigureAuth()
+	case "start":
+		return h.Start()
+	case "stop":
+		return h.Stop()
+	case "restart":
+		return h.Restart()
+	case "kill":
+		return h.Kill()
+	case "upgrade":
+		return h.Upgrade()
+	case "ip":
+		return h.PrintIP()
+	default:
+		return fmt.Errorf("Unknown action %q", actionName)
 	}
-
-	log.Debugf("command=%s machine=%s", actionName, host.Name)
-
-	errorChan <- commands[actionName]()
 }
 
 // runActionForeachMachine will run the command across multiple machines
@@ -283,7 +287,9 @@ func runActionForeachMachine(actionName string, machines []*host.Host) []error {
 			serialMachines = append(serialMachines, machine)
 		default:
 			numConcurrentActions++
-			go machineCommand(actionName, machine, errorChan)
+			go func() {
+				errorChan <- runAction(actionName, machine)
+			}()
 		}
 	}
 
@@ -291,12 +297,9 @@ func runActionForeachMachine(actionName string, machines []*host.Host) []error {
 	// do the serial actions.  As the name implies,
 	// these run one at a time.
 	for _, machine := range serialMachines {
-		serialChan := make(chan error)
-		go machineCommand(actionName, machine, serialChan)
-		if err := <-serialChan; err != nil {
+		if err := runAction(actionName, machine); err != nil {
 			errs = append(errs, err)
 		}
-		close(serialChan)
 	}
 
 	// TODO: We should probably only do 5-10 of these
