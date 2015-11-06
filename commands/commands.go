@@ -87,14 +87,6 @@ func getStore(c CommandLine) persist.Store {
 	}
 }
 
-func saveHost(store persist.Store, h *host.Host) error {
-	if err := store.Save(h); err != nil {
-		return fmt.Errorf("Error attempting to save host to store: %s", err)
-	}
-
-	return nil
-}
-
 var Commands = []cli.Command{
 	{
 		Name:   "active",
@@ -374,8 +366,8 @@ func runActionWithContext(actionName string, c CommandLine, store persist.Store)
 	}
 
 	for _, h := range hosts {
-		if err := saveHost(store, h); err != nil {
-			return fmt.Errorf("Error saving host to store: %s", err)
+		if err := store.Save(h); err != nil {
+			return fmt.Errorf("Error saving host %q to store: %s", h.Name, err)
 		}
 	}
 

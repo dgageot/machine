@@ -211,8 +211,8 @@ func cmdCreateInner(c CommandLine, store persist.Store) error {
 		return fmt.Errorf("Error creating machine: %s", err)
 	}
 
-	if err := saveHost(store, h); err != nil {
-		return fmt.Errorf("Error attempting to save store: %s", err)
+	if err := store.Save(h); err != nil {
+		return fmt.Errorf("Error saving host %q to store: %s", h.Name, err)
 	}
 
 	log.Infof("To see how to connect Docker to this machine, run: %s", fmt.Sprintf("%s env %s", os.Args[0], name))
