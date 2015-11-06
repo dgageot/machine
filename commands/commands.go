@@ -245,17 +245,6 @@ var Commands = []cli.Command{
 	},
 }
 
-func printIP(h *host.Host) func() error {
-	return func() error {
-		ip, err := h.Driver.GetIP()
-		if err != nil {
-			return fmt.Errorf("Error getting IP address: %s", err)
-		}
-		fmt.Println(ip)
-		return nil
-	}
-}
-
 // machineCommand maps the command name to the corresponding machine command.
 // We run commands concurrently and communicate back an error if there was one.
 func machineCommand(actionName string, host *host.Host, errorChan chan<- error) {
@@ -267,7 +256,7 @@ func machineCommand(actionName string, host *host.Host, errorChan chan<- error) 
 		"restart":       host.Restart,
 		"kill":          host.Kill,
 		"upgrade":       host.Upgrade,
-		"ip":            printIP(host),
+		"ip":            host.PrintIP,
 	}
 
 	log.Debugf("command=%s machine=%s", actionName, host.Name)
