@@ -7,6 +7,7 @@ RUN go get  github.com/golang/lint/golint \
             github.com/aktau/github-release
 
 ENV USER root
+ENV GO_BUILDFLAGS "-i"
 WORKDIR /go/src/github.com/docker/machine
 
 ADD . /go/src/github.com/docker/machine

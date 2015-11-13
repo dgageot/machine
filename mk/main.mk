@@ -15,6 +15,9 @@ GOLINT := $(shell [ -x $(GOLINT_BIN) ] && echo $(GOLINT_BIN) || echo '')
 GODEP_BIN := $(GOPATH)/bin/godep
 GODEP := $(shell [ -x $(GODEP_BIN) ] && echo $(GODEP_BIN) || echo '')
 
+# Additional go build flags
+GOBUILDFLAGS :=
+
 # Honor debug
 ifeq ($(DEBUG),true)
 	# Disable function inlining and variable registerization
