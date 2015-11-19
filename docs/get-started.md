@@ -16,7 +16,7 @@ Let's take a look at using `docker-machine` for creating, using, and managing a
 Docker host inside of [VirtualBox](https://www.virtualbox.org/).
 
 First, ensure that [the latest
-VirtualBox](https://www.virtualbox.org/wiki/Downloads) is correctly installed on
+VirtualBox 5](https://www.virtualbox.org/wiki/Downloads) is correctly installed on
 your system.
 
 If you run the `docker-machine ls` command to show all available machines, you will see
