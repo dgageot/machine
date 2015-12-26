@@ -126,6 +126,7 @@ func (lbe *Executor) Start() (*bufio.Scanner, *bufio.Scanner, error) {
 	log.Debugf("Launching plugin server for driver %s", lbe.DriverName)
 
 	lbe.cmd = exec.Command(lbe.binaryPath)
+	lbe.cmd.Env = append(os.Environ(), PluginEnvKey+"="+PluginEnvVal, PluginEnvDriverName+"="+lbe.DriverName)
 
 	lbe.pluginStdout, err = lbe.cmd.StdoutPipe()
 	if err != nil {
@@ -139,9 +140,6 @@ func (lbe *Executor) Start() (*bufio.Scanner, *bufio.Scanner, error) {
 
 	outScanner := bufio.NewScanner(lbe.pluginStdout)
 	errScanner := bufio.NewScanner(lbe.pluginStderr)
-
-	os.Setenv(PluginEnvKey, PluginEnvVal)
-	os.Setenv(PluginEnvDriverName, lbe.DriverName)
 
 	if err := lbe.cmd.Start(); err != nil {
 		return nil, nil, fmt.Errorf("Error starting plugin binary: %s", err)
