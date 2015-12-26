@@ -21,9 +21,8 @@ var (
 )
 
 type RPCClientDriver struct {
-	plugin          localbinary.DriverPlugin
-	heartbeatDoneCh chan bool
-	Client          *InternalClient
+	plugin localbinary.DriverPlugin
+	Client *InternalClient
 }
 
 type RPCCall struct {
@@ -123,8 +122,7 @@ func NewRPCClientDriver(driverName string, rawDriver []byte) (*RPCClientDriver, 
 	}
 
 	c := &RPCClientDriver{
-		Client:          NewInternalClient(rpcclient),
-		heartbeatDoneCh: make(chan bool),
+		Client: NewInternalClient(rpcclient),
 	}
 
 	openedDriversLock.Lock()
@@ -151,13 +149,9 @@ func NewRPCClientDriver(driverName string, rawDriver []byte) (*RPCClientDriver, 
 	go func(c *RPCClientDriver) {
 		for {
 			select {
-			case <-c.heartbeatDoneCh:
-				return
 			case <-time.After(heartbeatInterval):
 				if err := c.Client.Call(HeartbeatMethod, struct{}{}, nil); err != nil {
 					log.Warnf("Error attempting heartbeat call to plugin server: %s", err)
-					c.close()
-					return
 				}
 			}
 		}
@@ -184,19 +178,12 @@ func (c *RPCClientDriver) UnmarshalJSON(data []byte) error {
 }
 
 func (c *RPCClientDriver) close() error {
-	c.heartbeatDoneCh <- true
-	close(c.heartbeatDoneCh)
-
 	log.Debug("Making call to close driver server")
-
 	if err := c.Client.Call(CloseMethod, struct{}{}, nil); err != nil {
 		return err
 	}
 
-	log.Debug("Successfully made call to close driver server")
-
 	log.Debug("Making call to close connection to plugin binary")
-
 	if err := c.plugin.Close(); err != nil {
 		return err
 	}
