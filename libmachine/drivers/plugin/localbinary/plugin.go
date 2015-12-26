@@ -32,12 +32,11 @@ const (
 
 type PluginStreamer interface {
 	// Return a channel for receiving the output of the stream line by
-	// line, and a channel for stopping the stream when we are finished
-	// reading from it.
+	// line.
 	//
 	// It happens to be the case that we do this all inside of the main
 	// plugin struct today, but that may not be the case forever.
-	AttachStream(*bufio.Scanner) (<-chan string, chan<- bool)
+	AttachStream(*bufio.Scanner) <-chan string
 }
 
 type PluginServer interface {
@@ -164,28 +163,20 @@ func (lbe *Executor) Close() error {
 	return nil
 }
 
-func stream(scanner *bufio.Scanner, streamOutCh chan<- string, stopCh <-chan bool) {
-	for {
-		select {
-		case <-stopCh:
-			close(streamOutCh)
-			return
-		default:
-			scanner.Scan()
-			line := scanner.Text()
-			if err := scanner.Err(); err != nil {
-				log.Warnf("Scanning stream: %s", err)
-			}
-			streamOutCh <- strings.Trim(line, "\n")
+func stream(scanner *bufio.Scanner, streamOutCh chan<- string) {
+	for scanner.Scan() {
+		line := scanner.Text()
+		if err := scanner.Err(); err != nil {
+			log.Warnf("Scanning stream: %s", err)
 		}
+		streamOutCh <- strings.Trim(line, "\n")
 	}
 }
 
-func (lbp *Plugin) AttachStream(scanner *bufio.Scanner) (<-chan string, chan<- bool) {
+func (lbp *Plugin) AttachStream(scanner *bufio.Scanner) <-chan string {
 	streamOutCh := make(chan string)
-	stopCh := make(chan bool)
-	go stream(scanner, streamOutCh, stopCh)
-	return streamOutCh, stopCh
+	go stream(scanner, streamOutCh)
+	return streamOutCh
 }
 
 func (lbp *Plugin) execServer() error {
@@ -204,8 +195,8 @@ func (lbp *Plugin) execServer() error {
 
 	lbp.addrCh <- strings.TrimSpace(addr)
 
-	stdOutCh, stopStdoutCh := lbp.AttachStream(outScanner)
-	stdErrCh, stopStderrCh := lbp.AttachStream(errScanner)
+	stdOutCh := lbp.AttachStream(outScanner)
+	stdErrCh := lbp.AttachStream(errScanner)
 
 	for {
 		select {
@@ -213,9 +204,7 @@ func (lbp *Plugin) execServer() error {
 			log.Infof(pluginOut, lbp.MachineName, out)
 		case err := <-stdErrCh:
 			log.Debugf(pluginErr, lbp.MachineName, err)
-		case _ = <-lbp.stopCh:
-			stopStdoutCh <- true
-			stopStderrCh <- true
+		case <-lbp.stopCh:
 			if err := lbp.Executor.Close(); err != nil {
 				return fmt.Errorf("Error closing local plugin binary: %s", err)
 			}
