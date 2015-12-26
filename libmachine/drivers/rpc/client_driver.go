@@ -99,8 +99,6 @@ func CloseDrivers() {
 }
 
 func NewRPCClientDriver(driverName string, rawDriver []byte) (*RPCClientDriver, error) {
-	mcnName := ""
-
 	p, err := localbinary.NewPlugin(driverName)
 	if err != nil {
 		return nil, err
@@ -169,7 +167,7 @@ func NewRPCClientDriver(driverName string, rawDriver []byte) (*RPCClientDriver, 
 		return nil, err
 	}
 
-	mcnName = c.GetMachineName()
+	mcnName := c.GetMachineName()
 	p.MachineName = mcnName
 	c.Client.MachineName = mcnName
 	c.plugin = p
