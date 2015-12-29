@@ -1,5 +1,7 @@
 package state
 
+import "encoding/json"
+
 // State represents the state of a host
 type State int
 
@@ -33,4 +35,8 @@ func (s State) String() string {
 		return states[s]
 	}
 	return ""
+}
+
+func (s *State) MarshalJSON() ([]byte, error) {
+	return json.Marshal(s.String())
 }

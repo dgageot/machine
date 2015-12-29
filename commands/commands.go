@@ -322,6 +322,18 @@ var Commands = []cli.Command{
 		Usage:  "Show the Docker Machine version or a machine docker version",
 		Action: fatalOnError(cmdVersion),
 	},
+	{
+		Name:   "daemon",
+		Usage:  "Start a Docker Machine daemon open to remote queries",
+		Action: fatalOnError(cmdDaemon),
+		Flags: []cli.Flag{
+			cli.IntFlag{
+				Name:  "port, p",
+				Usage: "Http server port",
+				Value: daemonDefaultPort,
+			},
+		},
+	},
 }
 
 func printIP(h *host.Host) func() error {

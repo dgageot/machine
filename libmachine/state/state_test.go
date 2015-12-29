@@ -2,16 +2,18 @@ package state
 
 import (
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
-func TestDaemonCreate(t *testing.T) {
-	if None.String() != "" {
-		t.Fatal("None state should be empty string")
-	}
-	if Running.String() != "Running" {
-		t.Fatal("Running state should be 'Running'")
-	}
-	if Error.String() != "Error" {
-		t.Fatal("Error state should be 'Error'")
-	}
+func TestState(t *testing.T) {
+	assert.Equal(t, "", None.String())
+	assert.Equal(t, "Running", Running.String())
+	assert.Equal(t, "Paused", Paused.String())
+	assert.Equal(t, "Saved", Saved.String())
+	assert.Equal(t, "Stopped", Stopped.String())
+	assert.Equal(t, "Stopping", Stopping.String())
+	assert.Equal(t, "Starting", Starting.String())
+	assert.Equal(t, "Error", Error.String())
+	assert.Equal(t, "Timeout", Timeout.String())
 }
