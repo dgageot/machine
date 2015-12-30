@@ -16,11 +16,10 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-const daemonDefaultPort = 8080
+const daemonDefaultPort = 2200
 
 func cmdDaemon(c CommandLine, api libmachine.API) error {
 	port := c.Int("port")
-	fmt.Println("Running on port", port)
 
 	config := &ssh.ServerConfig{
 		NoClientAuth: true,
@@ -39,12 +38,12 @@ func cmdDaemon(c CommandLine, api libmachine.API) error {
 
 	config.AddHostKey(private)
 
-	listener, err := net.Listen("tcp", "0.0.0.0:2200")
+	listener, err := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", port))
 	if err != nil {
-		log.Fatalf("Failed to listen on 2200 (%s)", err)
+		log.Fatalf("Failed to listen on %d (%s)", port, err)
 	}
 
-	log.Print("Listening on 2200...")
+	log.Printf("Listening on %d...", port)
 	for {
 		tcpConn, err := listener.Accept()
 		if err != nil {
@@ -110,6 +109,8 @@ func handleChannel(api libmachine.API, newChannel ssh.NewChannel) {
 					if err != nil {
 						output = []byte("ERROR: " + err.Error())
 					}
+				} else if command == "machine/stop" {
+					output = []byte("TO BE DONE")
 				} else {
 					output = []byte("UNKNOWN")
 
