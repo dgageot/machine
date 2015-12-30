@@ -5,14 +5,25 @@ import (
 	"fmt"
 	"log"
 	"os/exec"
+	"path/filepath"
 	"time"
 
 	"io/ioutil"
 	"net"
 
+	"github.com/docker/machine/commands/mcndirs"
 	"github.com/docker/machine/libmachine"
+	"github.com/docker/machine/libmachine/auth"
+	"github.com/docker/machine/libmachine/engine"
 	"github.com/docker/machine/libmachine/persist"
+	"github.com/docker/machine/libmachine/swarm"
 
+	"strings"
+
+	"github.com/docker/machine/libmachine/drivers"
+	"github.com/docker/machine/libmachine/drivers/rpc"
+	"github.com/docker/machine/libmachine/host"
+	"github.com/docker/machine/libmachine/mcnerror"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -104,16 +115,21 @@ func handleChannel(api libmachine.API, newChannel ssh.NewChannel) {
 				req.Reply(true, nil)
 
 				var output []byte
+				var err error
 				if command == "machine/ls" {
 					output, err = runLs(api)
-					if err != nil {
-						output = []byte("ERROR: " + err.Error())
-					}
-				} else if command == "machine/stop" {
-					output = []byte("TO BE DONE")
+				} else if strings.HasPrefix(command, "machine/create") {
+					parts := strings.Split(command, " ")
+					output, err = []byte("DONE"), nil
+					go runCreate(api, parts[1])
 				} else {
+					fmt.Println(command)
 					output = []byte("UNKNOWN")
+				}
 
+				if err != nil {
+					fmt.Println(err)
+					output = []byte("ERROR: " + err.Error())
 				}
 
 				connection.Write(output)
@@ -125,6 +141,9 @@ func handleChannel(api libmachine.API, newChannel ssh.NewChannel) {
 }
 
 func runLs(api libmachine.API) ([]byte, error) {
+	// Not safe
+	defer rpcdriver.CloseDrivers()
+
 	stateTimeoutDuration = 10 * time.Second
 
 	hostList, hostInError, err := persist.LoadAllHosts(api)
@@ -140,4 +159,93 @@ func runLs(api libmachine.API) ([]byte, error) {
 	}
 
 	return bytes, nil
+}
+
+func runCreate(api libmachine.API, name string) ([]byte, error) {
+	fmt.Println("CREATE", name)
+	validName := host.ValidateHostName(name)
+	if !validName {
+		return nil, fmt.Errorf("Error creating machine: %s", mcnerror.ErrInvalidHostname)
+	}
+
+	// TODO: Fix hacky JSON solution
+	rawDriver, err := json.Marshal(&drivers.BaseDriver{
+		MachineName: name,
+		StorePath:   mcndirs.GetBaseDir(),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("Error attempting to marshal bare driver data: %s", err)
+	}
+
+	driverName := "virtualbox"
+	driver, err := api.NewPluginDriver(driverName, rawDriver)
+	if err != nil {
+		return nil, fmt.Errorf("Error loading driver %q: %s", driverName, err)
+	}
+
+	h, err := api.NewHost(driver)
+	if err != nil {
+		return nil, fmt.Errorf("Error getting new host: %s", err)
+	}
+
+	h.HostOptions = &host.Options{
+		AuthOptions: &auth.Options{
+			CertDir:          mcndirs.GetMachineCertDir(),
+			CaCertPath:       filepath.Join(mcndirs.GetMachineCertDir(), "ca.pem"),
+			CaPrivateKeyPath: filepath.Join(mcndirs.GetMachineCertDir(), "ca-key.pem"),
+			ClientCertPath:   filepath.Join(mcndirs.GetMachineCertDir(), "cert.pem"),
+			ClientKeyPath:    filepath.Join(mcndirs.GetMachineCertDir(), "key.pem"),
+			ServerCertPath:   filepath.Join(mcndirs.GetMachineDir(), name, "server.pem"),
+			ServerKeyPath:    filepath.Join(mcndirs.GetMachineDir(), name, "server-key.pem"),
+			StorePath:        filepath.Join(mcndirs.GetMachineDir(), name),
+		},
+		EngineOptions: &engine.Options{
+			TLSVerify: true,
+		},
+		SwarmOptions: &swarm.Options{},
+	}
+
+	exists, err := api.Exists(h.Name)
+	if err != nil {
+		return nil, fmt.Errorf("Error checking if host exists: %s", err)
+	}
+	if exists {
+		return nil, mcnerror.ErrHostAlreadyExists{
+			Name: h.Name,
+		}
+	}
+
+	driverOpts := rpcdriver.RPCFlags{
+		Values: map[string]interface{}{
+			"virtualbox-memory": 1024,
+			"virtualbox-cpu-count": 1,
+			"virtualbox-disk-size": 20000,
+			"virtualbox-boot2docker-url": "",
+			"virtualbox-import-boot2docker-vm": "",
+			"virtualbox-host-dns-resolver": false,
+			"virtualbox-hostonly-cidr": "192.168.99.1/24",
+			"virtualbox-hostonly-nictype": "82540EM",
+			"virtualbox-hostonly-nicpromisc": "deny",
+			"virtualbox-no-share": false,
+			"virtualbox-dns-proxy": false,
+			"virtualbox-no-vtx-check": false,
+			"swarm-master": false,
+			"swarm-host": "",
+			"swarm-discovery": "",
+		},
+	}
+
+	if err := h.Driver.SetConfigFromFlags(driverOpts); err != nil {
+		return nil, fmt.Errorf("Error setting machine configuration from flags provided: %s", err)
+	}
+
+	if err := api.Create(h); err != nil {
+		return nil, fmt.Errorf("Error creating machine: %s", err)
+	}
+
+	if err := api.Save(h); err != nil {
+		return nil, fmt.Errorf("Error attempting to save store: %s", err)
+	}
+
+	return []byte("OK"), nil
 }
