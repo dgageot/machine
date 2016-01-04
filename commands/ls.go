@@ -45,18 +45,18 @@ type FilterOptions struct {
 }
 
 type HostListItem struct {
-	Name          string
-	Active        string
-	ActiveHost    bool
-	ActiveSwarm   bool
-	DriverName    string
-	State         state.State
-	URL           string
-	SwarmOptions  *swarm.Options
-	Swarm         string
-	EngineOptions *engine.Options
-	Error         string
-	DockerVersion string
+	Name          string          `json:"name"`
+	Active        string          `json:"active"`
+	ActiveHost    bool            `json:"activeHost"`
+	ActiveSwarm   bool            `json:"activeSwarm"`
+	DriverName    string          `json:"driverName"`
+	State         state.State     `json:"state"`
+	URL           string          `json:"url"`
+	SwarmOptions  *swarm.Options  `json:"-"`
+	Swarm         string          `json:"swarm"`
+	EngineOptions *engine.Options `json:"-"`
+	Error         string          `json:"error"`
+	DockerVersion string          `json:"dockerVersion"`
 }
 
 type Headers struct {
