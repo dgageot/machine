@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"os/exec"
 	"path/filepath"
 	"time"
 
@@ -95,21 +94,6 @@ func handleChannel(api libmachine.API, newChannel ssh.NewChannel) {
 	go func() {
 		for req := range requests {
 			switch req.Type {
-			case "shell":
-				if len(req.Payload) == 0 {
-					req.Reply(true, nil)
-
-					bash := exec.Command("bash", "-c", "echo Hello")
-					output, err := bash.Output()
-					if err != nil {
-						log.Println("Bash error", err)
-						return
-					}
-
-					connection.Write(output)
-					connection.Close()
-					log.Printf("Session closed")
-				}
 			case "subsystem":
 				command := string(req.Payload[4:])
 				req.Reply(true, nil)
@@ -217,21 +201,21 @@ func runCreate(api libmachine.API, name string) ([]byte, error) {
 
 	driverOpts := rpcdriver.RPCFlags{
 		Values: map[string]interface{}{
-			"virtualbox-memory": 1024,
-			"virtualbox-cpu-count": 1,
-			"virtualbox-disk-size": 20000,
-			"virtualbox-boot2docker-url": "",
+			"virtualbox-memory":                1024,
+			"virtualbox-cpu-count":             1,
+			"virtualbox-disk-size":             20000,
+			"virtualbox-boot2docker-url":       "",
 			"virtualbox-import-boot2docker-vm": "",
-			"virtualbox-host-dns-resolver": false,
-			"virtualbox-hostonly-cidr": "192.168.99.1/24",
-			"virtualbox-hostonly-nictype": "82540EM",
-			"virtualbox-hostonly-nicpromisc": "deny",
-			"virtualbox-no-share": false,
-			"virtualbox-dns-proxy": false,
-			"virtualbox-no-vtx-check": false,
-			"swarm-master": false,
-			"swarm-host": "",
-			"swarm-discovery": "",
+			"virtualbox-host-dns-resolver":     false,
+			"virtualbox-hostonly-cidr":         "192.168.99.1/24",
+			"virtualbox-hostonly-nictype":      "82540EM",
+			"virtualbox-hostonly-nicpromisc":   "deny",
+			"virtualbox-no-share":              false,
+			"virtualbox-dns-proxy":             false,
+			"virtualbox-no-vtx-check":          false,
+			"swarm-master":                     false,
+			"swarm-host":                       "",
+			"swarm-discovery":                  "",
 		},
 	}
 
