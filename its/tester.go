@@ -12,6 +12,7 @@ import (
 
 	"fmt"
 
+	"path/filepath"
 	"runtime"
 )
 
@@ -20,20 +21,40 @@ var (
 )
 
 type IntegrationTest interface {
+	RequireDriver(driverName string)
+
+	SkipDriver(driverName string)
+
+	SkipDrivers(driverNames ...string)
+
+	ForceDriver(driverName string)
+
 	Run(description string, action func())
+
 	Cmd(commandLine string) IntegrationTest
+
+	Machine(commandLine string) IntegrationTest
+
 	DriverName() string
-	ShouldContainLines(count int) IntegrationTest
-	ShouldContainLine(index int, text string) IntegrationTest
-	ShouldEqualLine(index int, text string) IntegrationTest
-	ShouldSucceed() IntegrationTest
-	ShouldSucceedWith(message string) IntegrationTest
-	ShouldFail() IntegrationTest
-	ShouldFailWith(errorMessage string) IntegrationTest
+
+	Should() Assertions
+
 	TearDown()
 }
 
-func NewIntegrationTest(t *testing.T) IntegrationTest {
+type Assertions interface {
+	Succeed(messages ...string) Assertions
+
+	Fail(errorMessages ...string) Assertions
+
+	ContainLines(count int) Assertions
+
+	ContainLine(index int, text string) Assertions
+
+	EqualLine(index int, text string) Assertions
+}
+
+func NewTest(t *testing.T) IntegrationTest {
 	storagePath, _ := ioutil.TempDir("", "docker")
 
 	return &dockerMachineTest{
@@ -43,134 +64,164 @@ func NewIntegrationTest(t *testing.T) IntegrationTest {
 }
 
 type dockerMachineTest struct {
-	t           *testing.T
-	storagePath string
+	t                   *testing.T
+	storagePath         string
+	dockerMachineBinary string
+	description         string
+	skip                bool
+	rawOutput           string
+	lines               []string
+	err                 error
+	fatal               bool
+	failed              bool
+}
 
-	Description string
-	RawOutput   string
-	Lines       []string
-	Err         error
-	Failed      bool
+func (dmt *dockerMachineTest) RequireDriver(driverName string) {
+	dmt.skipIf(dmt.DriverName() != driverName)
+}
+
+func (dmt *dockerMachineTest) SkipDriver(driverName string) {
+	dmt.skipIf(dmt.DriverName() == driverName)
+}
+
+func (dmt *dockerMachineTest) SkipDrivers(driverNames ...string) {
+	for _, driverName := range driverNames {
+		dmt.skipIf(dmt.DriverName() == driverName)
+	}
+}
+
+func (dmt *dockerMachineTest) ForceDriver(driverName string) {
+	os.Setenv("DRIVER", driverName)
+}
+
+func (dmt *dockerMachineTest) skipIf(condition bool) {
+	if condition {
+		dmt.skip = true
+	}
 }
 
 func (dmt *dockerMachineTest) Run(description string, action func()) {
-	dmt.Description = description
-	dmt.RawOutput = ""
-	dmt.Lines = nil
-	dmt.Err = nil
-	dmt.Failed = false
+	dmt.description = description
+	dmt.rawOutput = ""
+	dmt.lines = nil
+	dmt.err = nil
+	dmt.failed = false
 
-	fmt.Print("\033[1;33m[..]\033[0m " + description)
-	action()
-
-	if dmt.Failed {
-		fmt.Println("\r\033[1;31m[KO]\033[0m " + description)
+	if dmt.skip {
+		fmt.Printf("%s %s\n", yellow("[SKIP]"), description)
 	} else {
-		fmt.Println("\r\033[1;32m[OK]\033[0m " + description)
+		fmt.Printf("%s %s", yellow("[..]"), description)
+		action()
+
+		if dmt.fatal || dmt.failed {
+			fmt.Printf("\r%s %s\n", red("[KO]"), description)
+		} else {
+			fmt.Printf("\r%s %s\n", green("[OK]"), description)
+		}
 	}
+}
+
+func red(message string) string {
+	if runtime.GOOS == "windows" {
+		return message
+	}
+	return "\033[1;31m" + message + "\033[0m"
+}
+
+func green(message string) string {
+	if runtime.GOOS == "windows" {
+		return message
+	}
+	return "\033[1;32m" + message + "\033[0m"
+}
+
+func yellow(message string) string {
+	if runtime.GOOS == "windows" {
+		return message
+	}
+	return "\033[1;33m" + message + "\033[0m"
 }
 
 func (dmt *dockerMachineTest) DriverName() string {
 	driver := os.Getenv("DRIVER")
-	if driver == "" {
-		// TEMP
-		return "none"
+	if driver != "" {
+		return driver
 	}
 
-	return driver
+	return "none"
 }
 
-func (dmt *dockerMachineTest) fail(message string, args ...interface{}) {
-	dmt.Failed = true
-
-	allArgs := []interface{}{dmt.Description}
-	allArgs = append(allArgs, args...)
-
-	dmt.t.Errorf("%s\nExpected "+message, allArgs...)
-}
-
-func (dmt *dockerMachineTest) ShouldContainLines(count int) IntegrationTest {
-	if count != len(dmt.Lines) {
-		dmt.fail("%d lines but got %d", count, len(dmt.Lines))
-	}
-	return dmt
-}
-
-func (dmt *dockerMachineTest) ShouldContainLine(index int, text string) IntegrationTest {
-	if index >= len(dmt.Lines) {
-		dmt.Failed = true
-		dmt.fail("at least %d lines\nGot %d", index+1, len(dmt.Lines))
-	} else if !strings.Contains(dmt.Lines[index], text) {
-		dmt.Failed = true
-		dmt.fail("line %d to contain '%s'\nGot '%s'", index, text, dmt.Lines[index])
-	}
-	return dmt
-}
-
-func (dmt *dockerMachineTest) ShouldEqualLine(index int, text string) IntegrationTest {
-	if index >= len(dmt.Lines) {
-		dmt.Failed = true
-		dmt.fail("at least %d lines\nGot %d", index+1, len(dmt.Lines))
-	} else if text != dmt.Lines[index] {
-		dmt.Failed = true
-		dmt.fail("line %d to be '%s'\nGot '%s'", index, text, dmt.Lines[index])
-	}
-	return dmt
-}
-
-func (dmt *dockerMachineTest) ShouldSucceed() IntegrationTest {
-	if dmt.Err != nil {
-		dmt.Failed = true
-		dmt.fail("to succeed\nFailed with %s", dmt.Err)
-	}
-	return dmt
-}
-
-func (dmt *dockerMachineTest) ShouldSucceedWith(text string) IntegrationTest {
-	if dmt.Err != nil {
-		dmt.Failed = true
-		dmt.fail("to succeed\nFailed with %s", dmt.Err)
-	} else if !strings.Contains(dmt.RawOutput, text) {
-		dmt.Failed = true
-		dmt.fail("output to contain '%s'\nGot '%s'", text, dmt.RawOutput)
-	}
-	return dmt
-}
-
-func (dmt *dockerMachineTest) ShouldFail() IntegrationTest {
-	if dmt.Err == nil {
-		dmt.Failed = true
-		dmt.fail("to fail\nGot success")
-	}
-	return dmt
-}
-
-func (dmt *dockerMachineTest) ShouldFailWith(text string) IntegrationTest {
-	if dmt.Err == nil {
-		dmt.Failed = true
-		dmt.fail("to fail\nGot success")
-	} else if !strings.Contains(dmt.RawOutput, text) {
-		dmt.Failed = true
-		dmt.fail("output to contain '%s'\nGot '%s'", text, dmt.RawOutput)
-	}
+func (dmt *dockerMachineTest) Should() Assertions {
 	return dmt
 }
 
 func (dmt *dockerMachineTest) testedBinary() string {
-	var path string
+	if dmt.dockerMachineBinary != "" {
+		return dmt.dockerMachineBinary
+	}
+
+	var binary string
 	if runtime.GOOS == "windows" {
-		path = "..\\bin\\docker-machine.exe"
+		binary = "docker-machine.exe"
 	} else {
-		path = "../bin/docker-machine"
+		binary = "docker-machine"
 	}
 
-	_, err := os.Stat(path)
-	if err != nil {
-		dmt.t.Fatalf("%s binary not found", path)
-		return ""
+	_, file, _, _ := runtime.Caller(0)
+	dir := filepath.Dir(file)
+
+	for dir != "/" {
+		path := filepath.Join(dir, "bin", binary)
+
+		_, err := os.Stat(path)
+		if err == nil {
+			dmt.dockerMachineBinary = path
+			return path
+		}
+
+		dir = filepath.Dir(dir)
 	}
 
-	return path
+	if !dmt.fatal {
+		dmt.fatal = true
+		dmt.t.Errorf("Binary not found: %s", binary)
+	}
+
+	return ""
+}
+
+func (dmt *dockerMachineTest) Cmd(commandLine string) IntegrationTest {
+	if dmt.fatal {
+		return dmt
+	}
+
+	commandLine = dmt.replaceDriver(commandLine)
+	commandLine = dmt.replaceMachinePath(commandLine)
+
+	return dmt.cmd("bash", "-c", commandLine)
+}
+
+func (dmt *dockerMachineTest) Machine(commandLine string) IntegrationTest {
+	if dmt.fatal {
+		return dmt
+	}
+
+	commandLine = dmt.replaceDriver(commandLine)
+
+	return dmt.cmd(dmt.testedBinary(), parseFields(commandLine)...)
+}
+
+func (dmt *dockerMachineTest) cmd(command string, args ...string) IntegrationTest {
+	cmd := exec.Command(command, args...)
+	cmd.Env = append(os.Environ(), "MACHINE_STORAGE_PATH="+dmt.storagePath)
+
+	combinedOutput, err := cmd.CombinedOutput()
+
+	dmt.rawOutput = string(combinedOutput)
+	dmt.lines = strings.Split(strings.TrimSpace(dmt.rawOutput), "\n")
+	dmt.err = err
+
+	return dmt
 }
 
 func (dmt *dockerMachineTest) replaceMachinePath(commandLine string) string {
@@ -193,26 +244,102 @@ func parseFields(commandLine string) []string {
 	return fields
 }
 
-func (dmt *dockerMachineTest) Cmd(commandLine string) IntegrationTest {
-	if strings.HasPrefix(commandLine, "machine ") {
-		return dmt.cmd(dmt.testedBinary(), parseFields(dmt.replaceDriver(commandLine[len("machine "):]))...)
+func (dmt *dockerMachineTest) TearDown() {
+	machines := filepath.Join(dmt.storagePath, "machines")
+
+	dirs, _ := ioutil.ReadDir(machines)
+	for _, dir := range dirs {
+		dmt.Cmd("machine rm -f " + dir.Name())
 	}
-	return dmt.cmd("bash", "-c", dmt.replaceMachinePath(dmt.replaceDriver(commandLine)))
+
+	os.RemoveAll(dmt.storagePath)
 }
 
-func (dmt *dockerMachineTest) cmd(command string, args ...string) IntegrationTest {
-	cmd := exec.Command(command, args...)
-	cmd.Env = []string{"MACHINE_STORAGE_PATH=" + dmt.storagePath}
+func (dmt *dockerMachineTest) ContainLines(count int) Assertions {
+	if dmt.fatal {
+		return dmt
+	}
 
-	combinedOutput, err := cmd.CombinedOutput()
-
-	dmt.RawOutput = string(combinedOutput)
-	dmt.Lines = strings.Split(strings.TrimSpace(dmt.RawOutput), "\n")
-	dmt.Err = err
+	if count != len(dmt.lines) {
+		return dmt.failExpected("%d lines but got %d", count, len(dmt.lines))
+	}
 
 	return dmt
 }
 
-func (dmt *dockerMachineTest) TearDown() {
-	os.RemoveAll(dmt.storagePath)
+func (dmt *dockerMachineTest) ContainLine(index int, text string) Assertions {
+	if dmt.fatal {
+		return dmt
+	}
+
+	if index >= len(dmt.lines) {
+		return dmt.failExpected("at least %d lines\nGot %d", index+1, len(dmt.lines))
+	}
+
+	if !strings.Contains(dmt.lines[index], text) {
+		return dmt.failExpected("line %d to contain '%s'\nGot '%s'", index, text, dmt.lines[index])
+	}
+
+	return dmt
+}
+
+func (dmt *dockerMachineTest) EqualLine(index int, text string) Assertions {
+	if dmt.fatal {
+		return dmt
+	}
+
+	if index >= len(dmt.lines) {
+		return dmt.failExpected("at least %d lines\nGot %d", index+1, len(dmt.lines))
+	}
+
+	if text != dmt.lines[index] {
+		return dmt.failExpected("line %d to be '%s'\nGot '%s'", index, text, dmt.lines[index])
+	}
+
+	return dmt
+}
+
+func (dmt *dockerMachineTest) Succeed(messages ...string) Assertions {
+	if dmt.fatal {
+		return dmt
+	}
+
+	if dmt.err != nil {
+		return dmt.failExpected("to succeed\nFailed with %s\n%s", dmt.err, dmt.rawOutput)
+	}
+
+	for _, message := range messages {
+		if !strings.Contains(dmt.rawOutput, message) {
+			return dmt.failExpected("output to contain '%s'\nGot '%s'", message, dmt.rawOutput)
+		}
+	}
+
+	return dmt
+}
+
+func (dmt *dockerMachineTest) Fail(errorMessages ...string) Assertions {
+	if dmt.fatal {
+		return dmt
+	}
+
+	if dmt.err == nil {
+		return dmt.failExpected("to fail\nGot success\n%s", dmt.rawOutput)
+	}
+
+	for _, message := range errorMessages {
+		if !strings.Contains(dmt.rawOutput, message) {
+			return dmt.failExpected("output to contain '%s'\nGot '%s'", message, dmt.rawOutput)
+		}
+	}
+
+	return dmt
+}
+
+func (dmt *dockerMachineTest) failExpected(message string, args ...interface{}) Assertions {
+	allArgs := append([]interface{}{dmt.description}, args...)
+
+	dmt.failed = true
+	dmt.t.Errorf("%s\nExpected "+message, allArgs...)
+
+	return dmt
 }
