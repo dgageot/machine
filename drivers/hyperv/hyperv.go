@@ -237,27 +237,27 @@ func (d *Driver) chooseVirtualSwitch() (string, error) {
 
 	switches := parseLines(stdout)
 
-	if d.VSwitch == "" {
-		if len(switches) < 1 {
-			return "", fmt.Errorf("no vswitch found")
+	if d.VSwitch != "" {
+		for _, name := range switches {
+			if name == d.VSwitch {
+				return d.VSwitch, nil
+			}
 		}
 
-		return switches[0], nil
-	}
-
-	found := false
-	for _, name := range switches {
-		if name == d.VSwitch {
-			found = true
-			break
+		// HACK for demo: let's create the Virtual Switch
+		if err := cmd(fmt.Sprintf("New-VMSwitch -Name %s -NetAdapterName wi-fi -AllowManagementOS $true -Notes 'Created by Docker Machine'", d.VSwitch)); err != nil {
+			return "", fmt.Errorf("Unable to create vswitch %s", d.VSwitch)
 		}
+
+		return d.VSwitch, nil
 	}
 
-	if !found {
-		return "", fmt.Errorf("vswitch %q not found", d.VSwitch)
+	// Use first available vswitch. Because, why not...
+	if len(switches) < 1 {
+		return "", errors.New("no vswitch found")
 	}
 
-	return d.VSwitch, nil
+	return switches[0], nil
 }
 
 // waitForIP waits until the host has a valid IP
