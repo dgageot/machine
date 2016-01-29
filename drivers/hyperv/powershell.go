@@ -18,6 +18,7 @@ var (
 	ErrPowerShellNotFound = errors.New("Powershell was not found in the path")
 	ErrNotAdministrator   = errors.New("Hyper-v commands have to be run as an Administrator")
 	ErrNotInstalled       = errors.New("Hyper-V PowerShell Module is not available")
+	ErrNotEnabled         = errors.New("Hyper-V PowerShell Module is installed but not enabled")
 )
 
 func init() {
@@ -60,9 +61,17 @@ func hypervAvailable() error {
 		return err
 	}
 
-	resp := parseLines(stdout)
-	if resp[0] != "Hyper-V" {
+	if strings.TrimSpace(stdout) != "Hyper-V" {
 		return ErrNotInstalled
+	}
+
+	stdout, err = cmdOut("@(Get-CimInstance -ClassName Win32_ComputerSystem).HypervisorPresent")
+	if err != nil {
+		return err
+	}
+
+	if strings.TrimSpace(stdout) != "True" {
+		return ErrNotEnabled
 	}
 
 	return nil
