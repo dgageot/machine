@@ -294,8 +294,8 @@ func (d *Driver) waitStopped() error {
 
 // Start starts an host
 func (d *Driver) Start() error {
-	if err := cmd("Start-VM", d.MachineName); err != nil {
-		return err
+	if out, err := cmdOut("Start-VM", d.MachineName); err != nil {
+		return errors.New(out)
 	}
 
 	ip, err := d.waitForIP()
