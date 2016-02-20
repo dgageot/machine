@@ -21,6 +21,8 @@ var (
 )
 
 type IntegrationTest interface {
+	StoragePath() string
+
 	RequireDriver(driverName string)
 
 	SkipDriver(driverName string)
@@ -57,8 +59,12 @@ type Assertions interface {
 }
 
 func NewTest(t *testing.T) IntegrationTest {
-	storagePath, _ := ioutil.TempDir("", "docker")
+	storagePath, _ := ioutil.TempDir("", "machine")
 
+	return NewTestWithStorage(t, storagePath)
+}
+
+func NewTestWithStorage(t *testing.T, storagePath string) IntegrationTest {
 	return &dockerMachineTest{
 		t:           t,
 		storagePath: storagePath,
@@ -76,6 +82,10 @@ type dockerMachineTest struct {
 	err                 error
 	fatal               bool
 	failed              bool
+}
+
+func (dmt *dockerMachineTest) StoragePath() string {
+	return dmt.storagePath
 }
 
 func (dmt *dockerMachineTest) RequireDriver(driverName string) {
@@ -215,7 +225,10 @@ func (dmt *dockerMachineTest) Machine(commandLine string) IntegrationTest {
 
 func (dmt *dockerMachineTest) cmd(command string, args ...string) IntegrationTest {
 	cmd := exec.Command(command, args...)
-	cmd.Env = append(os.Environ(), "MACHINE_STORAGE_PATH="+dmt.storagePath)
+	cmd.Env = os.Environ()
+	cmd.Env = append(cmd.Env, "MACHINE_STORAGE_PATH="+dmt.storagePath)
+	cmd.Env = append(cmd.Env, "DRIVER="+dmt.DriverName())
+	cmd.Env = append(cmd.Env, "NAME="+"shared") // TEMP
 
 	combinedOutput, err := cmd.CombinedOutput()
 

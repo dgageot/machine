@@ -4,61 +4,8 @@ load ${BASE_TEST_DIR}/helpers.bash
 
 use_shared_machine
 
-@test "$DRIVER: machine should not exist" {
-  run machine inspect UNKNOWN
-  echo ${output}
-  [ "$status" -eq 1 ]
-  [[ ${lines[0]} =~ "Host does not exist: \"UNKNOWN\"" ]]
-}
-
-@test "$DRIVER: appears with ls" {
-  run machine ls -q
-  echo ${output}
-  [ "$status" -eq 0  ]
-  [[ ${lines[0]} == "$NAME" ]]
-}
-
-@test "$DRIVER: has status 'started' appearing in ls" {
-  run machine ls -q --filter state=Running
-  echo ${output}
-  [ "$status" -eq 0  ]
-  [[ ${lines[0]} == "$NAME" ]]
-}
-
-@test "$DRIVER: create with same name again fails" {
-  run machine create -d $DRIVER $NAME
-  echo ${output}
-  [ "$status" -eq 1  ]
-  [[ ${lines[0]} == "Host already exists: \"$NAME\"" ]]
-}
-
 @test "$DRIVER: run busybox container" {
   run docker $(machine config $NAME) run busybox echo hello world
-  echo ${output}
-  [ "$status" -eq 0  ]
-}
-
-@test "$DRIVER: url" {
-  run machine url $NAME
-  echo ${output}
-  [ "$status" -eq 0  ]
-}
-
-@test "$DRIVER: ip" {
-  run machine ip $NAME
-  echo ${output}
-  [ "$status" -eq 0  ]
-}
-
-@test "$DRIVER: ssh" {
-  run machine ssh $NAME -- ls -lah /
-  echo ${output}
-  [ "$status" -eq 0  ]
-  [[ ${lines[0]} =~ "total"  ]]
-}
-
-@test "$DRIVER: version" {
-  run machine version $NAME
   echo ${output}
   [ "$status" -eq 0  ]
 }
